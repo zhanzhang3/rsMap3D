@@ -26,18 +26,24 @@ logger = logging.getLogger(__name__)
 
 
 # +++++++++++++++
-# Make changes to work with HDF5 from NSLSII 4-ID data, brutal forced
-#  I do need to generate folder structure simular to our Tiff case
-#  i.e.  $(PROJECT_DIR)/images/$(SAMPLE_NAME)/Snnn/*.h5
-#IMAGE_DIR_MERGE_STR = "images/%s"
-IMAGE_DIR_MERGE_STR = "hdf5s/%s"
+#  Zhan Zhang (2026-03-26)
+# Make changes to work with HDF5 file generated at CHEX 28-ID beamline.  
+#  I do need to generate folder structure different to the Tiff case,
+#    which is :
+#   $(PROJECT_DIR)/images/$(SAMPLE_NAME)/Snnn/$(SAMPLE_NAME)_Sxxx_nnnnn.tiff
+#  Here it is :
+#   $(PROJECT_DIR)/images/$(SAMPLE_NAME)/$(SAMPLE_NAME)_Sxxx_00000.h5
+IMAGE_DIR_MERGE_STR = "images/%s"
+#IMAGE_DIR_MERGE_STR = "hdf5s/%s"
 SCAN_NUMBER_MERGE_STR = "S%03d"
-TIFF_FILE_MERGE_STR = "S%%03d/%s_S%%03d_%%05d.tif"
-#hdf5 filename format string
-HDF5_FILE_MERGE_STR = "S%%03d/%s_%%03d_%%03d_data_000001.h5"
+#TIFF_FILE_MERGE_STR = "S%%03d/%s_S%%03d_%%05d.tif"
+#hdf5 filename format string: one h5 file per scan here
+#  This one is when we still had Sxxx/ folder in place. 
+#HDF5_FILE_MERGE_STR = "S%%03d/%s_S%%03d_00000.h5"
+HDF5_FILE_MERGE_STR = "%s_S%%03d_00000.h5"
 # +++++++++++++++
 
-class NSLSIISector4SpecDataSource(SpecXMLDrivenDataSource):
+class s28waxpcsSpecDataSource(SpecXMLDrivenDataSource):
     '''
     Class to load data from spec file and configuration xml files from 
     for the way that data is collected at sector 33.
@@ -61,9 +67,9 @@ class NSLSIISector4SpecDataSource(SpecXMLDrivenDataSource):
         :param detConfigFile: Full path to the detector configuration file
         :param kwargs: Assorted keyword arguments
 
-        :rtype: NSLSIISector4SpecDataSource
+        :rtype: s28waxpcsSpecDataSource
         '''
-        super(NSLSIISector4SpecDataSource, self).__init__(projectDir, 
+        super(s28waxpcsSpecDataSource, self).__init__(projectDir, 
                                                      projectName, 
                                                      projectExtension,
                                                      instConfigFile, 
@@ -293,8 +299,13 @@ class NSLSIISector4SpecDataSource(SpecXMLDrivenDataSource):
                     raise LoadCanceledException(CANCEL_STR)
                 
                 else:
-                    if (os.path.exists(os.path.join(imagePath, \
-                                            SCAN_NUMBER_MERGE_STR % scan))):
+                    # Ok, this needs to be changed, too, if we get rid of Sxxx/ folder. 
+                    # I don't think it looks for the images in this section, but just to 
+                    #   make sure they do exsit. 
+                    # ZZ 2026-03-26
+                    #if (os.path.exists(os.path.join(imagePath, \
+                    #                        SCAN_NUMBER_MERGE_STR % scan))):
+                    if (os.path.exists( self.imageFileTmp % (scan) )):
                         try:
                             curScan = self.sd.scans[str(scan)]
                             self.scanType[scan] = \
@@ -304,7 +315,7 @@ class NSLSIISector4SpecDataSource(SpecXMLDrivenDataSource):
                             if self.mapHKL==True:
                                 self.ubMatrix[scan] = self.getUBMatrix(curScan)
                                 if self.ubMatrix[scan] is None:
-                                    raise Sector33SpecFileException("UB matrix " + \
+                                    raise s28waxpcsSpecFileException("UB matrix " + \
                                                                     "not found.")
                             else:
                                 self.ubMatrix[scan] = None
@@ -470,6 +481,14 @@ class NSLSIISector4SpecDataSource(SpecXMLDrivenDataSource):
             
             if mask_was_none:
                 mask = [True] * len(self.getImageToBeUsed()[scannr])            
+
+            # +++++++++++++++
+            # Read HDF5 file here, brutal force.  Need better handle.  
+            h5file = self.imageFileTmp % (scannr)
+            h5data = h5py.File(h5file, "r")
+            scan_images = h5data["entry"]["data"]["data"]
+            # +++++++++++++++
+
             
             for ind in range(len(scan.data[list(scan.data.keys())[0]])):
                 if imageToBeUsed[scannr][ind] and mask[ind]:    
@@ -477,10 +496,10 @@ class NSLSIISector4SpecDataSource(SpecXMLDrivenDataSource):
                     # Read HDF5 file here
                     #im = Image.open(self.imageFileTmp % (scannr, scannr, ind))
                     #img = np.array(im.getdata()).reshape(im.size[1],im.size[0]).T
-                    h5file = self.imageFileTmp % (scannr, scannr, ind)
-                    h5data = h5py.File(h5file, "r")
-                    im = h5data["entry"]["data"]["data"][0,:,:]
-                    img = np.array(im).T
+                    #h5file = self.imageFileTmp % (scannr, scannr, ind)
+                    #h5data = h5py.File(h5file, "r")
+                    #im = h5data["entry"]["data"]["data"][0,:,:]
+                    img = np.array(scan_images[ind,:,:]).T
                     # +++++++++++++++
 
                     img = self.hotpixelkill(img)
@@ -553,14 +572,14 @@ class LoadCanceledException(RSMap3DException):
     def __init__(self, message):
         super(LoadCanceledException, self).__init__(message)
         
-class Sector33SpecFileException(RSMap3DException):
+class s28waxpcsSpecFileException(RSMap3DException):
     '''
     Exception class to be raised if there is a problem loading information
     from a spec file
     file
     '''
     def __init__(self, message):
-        super(Sector33SpecFileException, self).__init__(message)
+        super(s28waxpcsSpecFileException, self).__init__(message)
 
 
 
