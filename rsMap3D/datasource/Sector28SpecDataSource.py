@@ -43,7 +43,7 @@ SCAN_NUMBER_MERGE_STR = "S%03d"
 HDF5_FILE_MERGE_STR = "%s_S%%03d_00000.h5"
 # +++++++++++++++
 
-class s28waxpcsSpecDataSource(SpecXMLDrivenDataSource):
+class Sector28SpecDataSource(SpecXMLDrivenDataSource):
     '''
     Class to load data from spec file and configuration xml files from 
     for the way that data is collected at sector 33.
@@ -67,9 +67,9 @@ class s28waxpcsSpecDataSource(SpecXMLDrivenDataSource):
         :param detConfigFile: Full path to the detector configuration file
         :param kwargs: Assorted keyword arguments
 
-        :rtype: s28waxpcsSpecDataSource
+        :rtype: Sector28SpecDataSource
         '''
-        super(s28waxpcsSpecDataSource, self).__init__(projectDir, 
+        super(Sector28SpecDataSource, self).__init__(projectDir, 
                                                      projectName, 
                                                      projectExtension,
                                                      instConfigFile, 
@@ -315,7 +315,7 @@ class s28waxpcsSpecDataSource(SpecXMLDrivenDataSource):
                             if self.mapHKL==True:
                                 self.ubMatrix[scan] = self.getUBMatrix(curScan)
                                 if self.ubMatrix[scan] is None:
-                                    raise s28waxpcsSpecFileException("UB matrix " + \
+                                    raise Sector28SpecFileException("UB matrix " + \
                                                                     "not found.")
                             else:
                                 self.ubMatrix[scan] = None
@@ -572,14 +572,14 @@ class LoadCanceledException(RSMap3DException):
     def __init__(self, message):
         super(LoadCanceledException, self).__init__(message)
         
-class s28waxpcsSpecFileException(RSMap3DException):
+class Sector28SpecFileException(RSMap3DException):
     '''
     Exception class to be raised if there is a problem loading information
     from a spec file
     file
     '''
     def __init__(self, message):
-        super(s28waxpcsSpecFileException, self).__init__(message)
+        super(Sector28SpecFileException, self).__init__(message)
 
 
 
